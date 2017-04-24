@@ -350,29 +350,36 @@ public class T_host_command_implementation extends T_hsm_base_6_util {
             l_offset += l_mdkac.p_length * 2
             l_offset += l_mdkac.p_scheme.length()
 
-            String l_pan = i_request.p_message_s.substring(l_offset, l_offset + 8)
+            byte[] l_pan = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 8)
             l_offset += 8
 
-            String l_atc = i_request.p_message_s.substring(l_offset, l_offset + 2)
+            byte[] l_atc = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 2)
             l_offset += 2
 
-            String l_un = i_request.p_message_s.substring(l_offset, l_offset + 4)
+            byte[] l_un = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 4)
             l_offset += 4
 
             String l_trxn_data_length = i_request.p_message_s.substring(l_offset, l_offset + 2)
             l_offset += 2
 
-            String l_trxn_data_ = i_request.p_message_s.substring(l_offset, l_offset + Integer.parseInt(l_trxn_data_length, 16))
+            byte[] l_trxn_data = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + Integer.parseInt(l_trxn_data_length, 16))
             l_offset += Integer.parseInt(l_trxn_data_length, 16)
 
             if (i_request.p_message_s.substring(l_offset, l_offset + 1) != ';') throw new Exception("Incorrect data supplied")
             l_offset++
 
-            String l_arqc = i_request.p_message_s.substring(l_offset, l_offset + 8)
+            byte[] l_arqc = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 8)
             l_offset += 8
 
-            String l_arc = i_request.p_message_s.substring(l_offset, l_offset + 2)
-            l_offset += 2
+            String l_arc = new String(Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 2))
+
+            /* Derive session key */
+            byte[] l_session_key_a = get_context().p_des.encrypt_tdes(l_pan, l_mdkac)
+            byte[] l_session_key_b = T_crypto_utils.xor(l_pan, DatatypeConverter.parseHexBinary(CRYPTO_INIT_VECTOR_SINGLE_F))
+            l_session_key_b = get_context().p_des.encrypt_tdes(l_session_key_b, l_mdkac)
+
+            T_key l_session_key = new T_key(T_crypto_utils.concat(l_session_key_a, l_session_key_b), KEY_SCHEME_DOUBLE_VARIANT)
+
 
         } catch (Exception e) {
             System.out.println(e.getMessage())
