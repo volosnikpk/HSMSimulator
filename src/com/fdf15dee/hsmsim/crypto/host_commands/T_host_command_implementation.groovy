@@ -328,7 +328,7 @@ public class T_host_command_implementation extends T_hsm_base_6_util {
     }
 
     public static T_message KQ(T_message i_request) {
-        String l_pin_block = GC_EMPTY_STRING
+        byte[] l_data_res
 
         try {
             Integer l_offset = HSM_REQ_COMMAND_CODE_LEN
@@ -350,36 +350,79 @@ public class T_host_command_implementation extends T_hsm_base_6_util {
             l_offset += l_mdkac.p_length * 2
             l_offset += l_mdkac.p_scheme.length()
 
-            String l_pan = i_request.p_message_s.substring(l_offset, l_offset + 8)
+            byte[] l_pan = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 8)
             l_offset += 8
 
-            String l_atc = i_request.p_message_s.substring(l_offset, l_offset + 2)
+            byte[] l_atc = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 2)
             l_offset += 2
 
-            String l_un = i_request.p_message_s.substring(l_offset, l_offset + 4)
+            byte[] l_un = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 4)
             l_offset += 4
 
-            String l_trxn_data_length = i_request.p_message_s.substring(l_offset, l_offset + 2)
+            Integer l_trxn_data_length = Integer.parseInt(i_request.p_message_s.substring(l_offset, l_offset + 2), 16)
             l_offset += 2
 
-            String l_trxn_data_ = i_request.p_message_s.substring(l_offset, l_offset + Integer.parseInt(l_trxn_data_length, 16))
-            l_offset += Integer.parseInt(l_trxn_data_length, 16)
+            byte[] l_trxn_data = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + l_trxn_data_length)
+            l_offset += l_trxn_data_length
 
             if (i_request.p_message_s.substring(l_offset, l_offset + 1) != ';') throw new Exception("Incorrect data supplied")
             l_offset++
 
-            String l_arqc = i_request.p_message_s.substring(l_offset, l_offset + 8)
+            byte[] l_arqc = Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 8)
             l_offset += 8
 
-            String l_arc = i_request.p_message_s.substring(l_offset, l_offset + 2)
-            l_offset += 2
+            String l_arc = new String(Arrays.copyOfRange(i_request.p_message_b, l_offset, l_offset + 2))
+
+            /* Derive session key */
+            byte[] l_session_key_a = get_context().p_des.encrypt_tdes(l_pan, l_mdkac)
+            byte[] l_session_key_b = T_crypto_utils.xor(l_pan, DatatypeConverter.parseHexBinary(CRYPTO_INIT_VECTOR_SINGLE_F))
+            l_session_key_b = get_context().p_des.encrypt_tdes(l_session_key_b, l_mdkac)
+            T_key l_session_key = new T_key(T_crypto_utils.concat(l_session_key_a, l_session_key_b), KEY_SCHEME_DOUBLE_VARIANT)
+            System.out.println("Derived session key [" + l_session_key.toString().substring(1) + "]")
+            /* Session key derived */
+
+            byte[] l_data_enc, l_data_b
+            for (int i = 0; i < l_trxn_data_length / 8; i++) {
+                if (is_null(l_data_res)) {
+                    l_data_res = Arrays.copyOfRange(l_trxn_data, i * 8, (i + 1) * 8)
+                }
+
+                l_data_enc = get_context().p_des.encrypt(l_data_res, l_session_key.p_a)
+
+                if (i < (l_trxn_data_length / 8) - 1) {
+                    l_data_b = Arrays.copyOfRange(l_trxn_data, (i + 1) * 8, (i + 2) * 8)
+                    l_data_res = T_crypto_utils.xor(l_data_enc, l_data_b)
+                }
+
+                if (i == (l_trxn_data_length / 8) - 1) {
+                    l_data_res = l_data_enc
+                }
+            }
+
+            l_data_res = get_context().p_des.decrypt(l_data_res, l_session_key.p_b)
+            l_data_res = get_context().p_des.encrypt(l_data_res, l_session_key.p_a)
+            System.out.println("Generated ARQC [" + DatatypeConverter.printHexBinary(l_data_res) + "]")
+
+            if (l_arqc == l_data_res) {
+                if (l_mode == "1" || l_mode == "2") {
+                    byte[] l_arc_padded = DatatypeConverter.parseHexBinary(DatatypeConverter.printHexBinary(l_arc.getBytes()).padRight(16, '0'))
+
+                    l_data_res = T_crypto_utils.xor(l_data_res, l_arc_padded)
+                    l_data_enc = get_context().p_des.encrypt(l_data_res, l_session_key.p_a)
+                    l_data_enc = get_context().p_des.decrypt(l_data_enc, l_session_key.p_b)
+                    l_data_res = get_context().p_des.encrypt(l_data_enc, l_session_key.p_a)
+                }
+            } else {
+                System.out.println("ARQC verification failed")
+                return new T_message(i_request, (VRF_ARQC_GEN_ARPC_RSP + HSM_RSP_VRF_FAILED).getBytes())
+            }
 
         } catch (Exception e) {
             System.out.println(e.getMessage())
             return new T_message(i_request, (VRF_ARQC_GEN_ARPC_RSP + HSM_RSP_INSUFFICIENT_DATA).getBytes())
         }
 
-        return new T_message(i_request, (VRF_ARQC_GEN_ARPC_RSP + HSM_RSP_NO_ERROR).getBytes())
+        return new T_message(i_request, (VRF_ARQC_GEN_ARPC_RSP + HSM_RSP_NO_ERROR + DatatypeConverter.printHexBinary(l_data_res)).getBytes())
     }
 
 }

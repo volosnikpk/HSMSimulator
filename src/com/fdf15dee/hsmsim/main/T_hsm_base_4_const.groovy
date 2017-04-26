@@ -59,6 +59,7 @@ class T_hsm_base_4_const extends T_common_base_3_utils {
     public static final String KEY_SCHEME_CLEAR = "C"
 
     public static final String CRYPTO_INIT_VECTOR_SINGLE = "0000000000000000"
+    public static final String CRYPTO_INIT_VECTOR_SINGLE_F = "FFFFFFFFFFFFFFFF"
     public static final String CRYPTO_INIT_VECTOR_DOUBLE = "00000000000000000000000000000000"
     public static final String CRYPTO_INIT_VECTOR_TRIPLE = "000000000000000000000000000000000000000000000000"
 
@@ -98,6 +99,5 @@ class T_hsm_base_4_const extends T_common_base_3_utils {
     public static final Integer HSM_DECIMALIZATION_TABLE_LENGTH = 0x10
     public static final Integer HSM_PIN_VALIDATION_DATA_LENGTH = 0x0C
     public static final Integer HSM_PIN_BLOCK_LENGTH = 0x10
-
 
 }

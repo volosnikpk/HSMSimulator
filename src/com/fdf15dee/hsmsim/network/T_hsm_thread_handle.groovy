@@ -60,7 +60,7 @@ public class T_hsm_thread_handle extends Thread {
                 l().log_info(s.Request_received)
 
                 System.out.println(tid_str + "RCV BIN [" + new String(l_message.p_message_header_b) + new String(l_message.p_message_b) + "]")
-                System.out.println(tid_str + "RCV HEX [" + l_message.p_message_header_s + l_message.p_message_s + "]")
+                System.out.println(tid_str + "RCV HEX [" + DatatypeConverter.printHexBinary(l_message.p_message_header_b) + DatatypeConverter.printHexBinary(l_message.p_message_b) + "]")
 
                 System.out.println(tid_str + "HC REQ length [" + String.format("%02X", l_message.p_message_b.length) + "]")
                 System.out.println(tid_str + "HC REQ code   [" + T_host_command_pb.get_host_command_code(l_message) + "]")
